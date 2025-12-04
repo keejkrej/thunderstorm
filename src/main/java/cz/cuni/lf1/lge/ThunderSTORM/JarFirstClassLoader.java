@@ -21,6 +21,12 @@ public class JarFirstClassLoader extends URLClassLoader {
 
     @Override
     public Class<?> loadClass(String name) throws ClassNotFoundException {
+        // Skip internal Sun classes that were removed in Java 9+
+        if (name.startsWith("com.sun.net.ssl.internal.") || 
+            name.startsWith("sun.net.www.protocol.https.")) {
+            throw new ClassNotFoundException(name + " (removed in Java 9+)");
+        }
+        
         Class<?> c = findLoadedClass(name);
         if(c == null) {
             try {

@@ -58,7 +58,14 @@ public class HelpButton extends JButton {
                 frame.setType(Window.Type.UTILITY);
             }
             frame.setModalExclusionType(Dialog.ModalExclusionType.APPLICATION_EXCLUDE); //for use within modal dialog
-            htmlBrowser = createEditorUsingOurClassLoader();
+            try {
+                htmlBrowser = createEditorUsingOurClassLoader();
+            } catch (NoClassDefFoundError | ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+                // Fallback to standard HTML editor if SwingBox fails (e.g., due to missing SSL classes in Java 9+)
+                htmlBrowser = new JEditorPane();
+                htmlBrowser.setContentType("text/html");
+                htmlBrowser.setEditable(false);
+            }
             htmlBrowser.setBorder(BorderFactory.createEmptyBorder());
             htmlBrowser.addHyperlinkListener(new HyperlinkListener() {
                 @Override
@@ -94,13 +101,23 @@ public class HelpButton extends JButton {
      * classes in our jar
      */
     public static JEditorPane createEditorUsingOurClassLoader() throws ClassNotFoundException, InstantiationException, IllegalAccessException {
-        ClassLoader our = JarFirstClassLoader.getInstance();
-        Class c = Class.forName("org.fit.cssbox.swingbox.BrowserPane", true, our);
-        JEditorPane editor = (JEditorPane) c.newInstance();
+        try {
+            ClassLoader our = JarFirstClassLoader.getInstance();
+            Class c = Class.forName("org.fit.cssbox.swingbox.BrowserPane", true, our);
+            JEditorPane editor = (JEditorPane) c.newInstance();
 
-        Class c2 = Class.forName("org.fit.cssbox.swingbox.SwingBoxEditorKit", true, our);
-        editor.setEditorKit((EditorKit) c2.newInstance());
-        return editor;
+            Class c2 = Class.forName("org.fit.cssbox.swingbox.SwingBoxEditorKit", true, our);
+            editor.setEditorKit((EditorKit) c2.newInstance());
+            return editor;
+        } catch (NoClassDefFoundError e) {
+            // Handle missing internal SSL classes in Java 9+ (com.sun.net.ssl.internal.ssl.Provider)
+            // Fall back to standard JEditorPane with HTML support
+            IJ.log("Warning: Could not load SwingBox HTML viewer, using standard HTML viewer. SSL-related classes not available in Java 9+.");
+            JEditorPane editor = new JEditorPane();
+            editor.setContentType("text/html");
+            editor.setEditable(false);
+            return editor;
+        }
     }
 
     /**
